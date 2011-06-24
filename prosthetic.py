@@ -30,6 +30,25 @@ import re
 import time
 import urllib
 
+import models
+import tesco
+
+def tesco_api(): 
+    '''Create a Tesco API object using the Datastore Config'''
+    config = models.get_config()
+    return tesco.TescoApi(config.email, config.password, config.developer_key,
+                         config.application_key)
+
+def tesco_ingredients_details(api, ingredients_list):
+    '''Get a list of recipe ingredients details via the Tesco API'''
+    results = []
+    for ingredient in ingredients_list:
+        details = api.product_search(ingredient)
+        if details['StatusCode'] == 0 and \
+                details['TotalProductCount'] > 0:
+            results.append(random.choice(details['Products']))
+    return results
+
 def maybe(fun, probability=0.5, default=None):
     """Call fun with args if random(0..1) is less than probability."""
     result = default
@@ -619,18 +638,17 @@ def tags():
                                 ":)"))
 
 def ingredients():
-    items = random.sample([fruit(),
-                           vegetable(),
-                           meat(),
-                           dairy()],
-                          random.randint(1, 4))
-    return nice_list(items)
+    return random.sample([fruit(),
+                          vegetable(),
+                          meat(),
+                          dairy()],
+                         random.randint(1, 4))
 
-def recipe_description():
+def recipe_description(ingredients_list):
     return " ".join(filter(bool, [meal_moment(),
                                   desire(),
                                   amount(),
-                                  ingredients(),
+                                  nice_list(ingredients_list),
                                   meal_format(),
                                   side_dish()])) + "."
 
@@ -639,15 +657,46 @@ def capitalize_start(string):
     words[0] = words[0].capitalize()
     return " ".join(words)
 
+def tesco_product_url(product_id):
+    '''Construct a url on the Tesco site for a product id'''
+    return "http://www.tesco.com/groceries/Product/Details/?id=%s" % product_id
+
+def recipe_details(ingredients_list):
+    '''Create a body for the post using details from the Tesco API'''
+    api = tesco_api()
+    ingredients_details = tesco_ingredients_details(api, ingredients_list)
+    details = ""
+    total = 0.0
+    for detail in ingredients_details:
+        price = round(float(detail['UnitPrice']), 2)
+        product_url = tesco_product_url(detail['ProductId'])
+        details += '<p>&pound;%s <a href="%s">%s</a></p>' % (price,
+                                                             product_url,
+                                                             detail['Name'])
+        total += price
+    if details:
+        details += "<p>&pound;%s <b>total</b></p>" % total
+    for detail in ingredients_details:
+        product_url = tesco_product_url(detail['ProductId'])
+        image_url = detail['ImagePath']
+        details += '<a href="%s"><img src="%s"></a>&nbsp;' % (product_url,
+                                                              image_url)
+    return details
+
 def random_recipe():
-    """A possible (albeit often improbable) recipe"""
-    description = " ".join(filter(bool, [recipe_description(),
-                                         drink(),
+    '''A possible (albeit often improbable) recipe title and description'''
+    ingredients_list = ingredients()
+    drink_item = drink()
+    if drink_item:
+        ingredients_list.append(drink_item)
+    description = " ".join(filter(bool, [recipe_description(ingredients_list),
                                          tags()]))
-    return capitalize_start(description)
+    recipe = capitalize_start(description)
+    details = recipe_details(ingredients_list)
+    return recipe, details
 
 class Recipeer(Prosthetic):
-    """A prosthetic that publishes innovative recipe ideas."""
+    '''A prosthetic that publishes innovative recipe ideas.'''
 
     def is_awake(self, state):
         return state['awake']
@@ -660,11 +709,13 @@ class Recipeer(Prosthetic):
         try:
             state = self.get("/1/weavr/state/")
             if self.should_post(state):
-                recipe = random_recipe()
+                recipe, details = random_recipe()
                 logging.info("posting new recipe: %s" % recipe)
+                logging.info("with details: %s" % details)
                 self.post("/1/weavr/post/", {
-                        "category":"status",
+                        "category":"article",
                         "title":recipe,
+                        "body":details, 
                         "keywords":state["emotion"],
                         })
                 result = "posted recipe"
