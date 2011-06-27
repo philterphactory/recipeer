@@ -31,6 +31,18 @@ try:
 except ImportError:
     import json
 
+try:
+    from google.appengine.api import urlfetch
+    
+    def fetch_url (url):
+        return (urlfetch.fetch(url.encode('utf-8'), deadline=10).content)
+except:
+    import urllib
+    
+    def fetch_url (url):
+        return (urllib.urlopen(url.encode('utf-8')).read())
+
+
 class TescoApi(object):
     QUERY_ROOT = "https://www.techfortesco.com/groceryapi_b1/restservice.aspx"
     
@@ -50,13 +62,14 @@ class TescoApi(object):
             query_dict['sessionkey'] = self.session_key
         query = "%s?%s" % (TescoApi.QUERY_ROOT, urllib.urlencode(query_dict))
         #logging.info(query)
-        response = urllib.urlopen(query).read()
+        response = fetch_url(query)
         #logging.info(response)
         return json.loads(response)
     
-    def product_search(self, search_for):
+    def product_search(self, search_for, extended=False):
         '''Get the parsed json of the product search result'''
         query_dict = {'searchtext':urllib.quote_plus(search_for),
-                      #'extendedinfo':'Y',
                       'page':1}
+        if extended:
+            query_dict['extendedinfo'] = 'Y'
         return self.get_json('PRODUCTSEARCH', query_dict)

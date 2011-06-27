@@ -43,6 +43,8 @@ def tesco_ingredients_details(api, ingredients_list):
     '''Get a list of recipe ingredients details via the Tesco API'''
     results = []
     for ingredient in ingredients_list:
+        # Constrain the search to food
+        food_search = "%s %s" % (ingredient, "food")
         details = api.product_search(ingredient)
         if details['StatusCode'] == 0 and \
                 details['TotalProductCount'] > 0:
@@ -666,16 +668,19 @@ def recipe_details(ingredients_list):
     api = tesco_api()
     ingredients_details = tesco_ingredients_details(api, ingredients_list)
     details = ""
-    total = 0.0
+    total_price = 0.0
+    #total_calories = 0.0
     for detail in ingredients_details:
-        price = round(float(detail['UnitPrice']), 2)
+        price = round(float(detail['Price']), 2)
         product_url = tesco_product_url(detail['ProductId'])
-        details += '<p>&pound;%s <a href="%s">%s</a></p>' % (price,
-                                                             product_url,
-                                                             detail['Name'])
-        total += price
+        #calories = detail['RDA_Calories_Count']
+        details += '<p>&pound;%s <a href="%s">%s</a></p>' % \
+            (price, product_url, detail['Name'])
+        total_price += price
+        #total_calories += calories
     if details:
-        details += "<p>&pound;%s <b>total</b></p>" % total
+        details += "<p>&pound;%s <b>total</b></p>" % total_price
+        #details += "<p>%s Calories <b>total</b></p>" % total_calories
     for detail in ingredients_details:
         product_url = tesco_product_url(detail['ProductId'])
         image_url = detail['ImagePath']
