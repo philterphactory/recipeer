@@ -33,6 +33,10 @@ import urllib
 import models
 import tesco
 
+class NoSuitableProduct(Exception):
+    """No suitable food product could be found"""
+    pass
+
 def tesco_api(): 
     '''Create a Tesco API object using the Datastore Config'''
     config = models.get_config()
@@ -44,6 +48,23 @@ def tesco_purchase(title, details):
     qty = ",".join(["1"] * len(items))
     purchase = ",".join(["PURCHASE"] * len(items))
     return "http://www.tesco.com/groceries/recipe/default.aspx?listid=%s&items=%s&qty=%s&purchase=%s" % (title, ",".join(items), qty, purchase)
+
+
+def tesco_is_food(product):
+    """Check whether it's cucumber, or cucumber scented product"""
+    # This is not reliable. We exclude some food, e.g. Camp Coffee
+    return product["NutrientsCount"] != 0
+
+def choose_product(products):
+    """Choose a food product, or raise an exception"""
+    result = None
+    for product in products:
+        if tesco_is_food(product):
+            result = product
+            break
+    if not result:
+        raise NoSuitableProduct()
+    return result
 
 def tesco_calories(extended):
     calories = extended['RDA_Calories_Count']
@@ -65,20 +86,29 @@ def tesco_ingredient_extended_details(api, ingredient):
     '''Get the extended details for a single item'''
     return api.product_search(ingredient['ProductId'], extended=True)
 
+def tesco_ingredient_details(api, search, results):
+    details = api.product_search(ingredient)
+    if details['StatusCode'] == 0 and \
+            details['TotalProductCount'] > 0:
+        products = details['Products']
+        random.shuffle(products)
+        for product in products:
+            extended = tesco_ingredient_extended_details(api, basic)
+            if extended['StatusCode'] == 0 and \
+                    extended['TotalProductCount'] > 0 and \
+                    tesco_is_food(extended):
+                results.append(extended['Products'][0])
+                # Noooo! Multiple exit points from function!!! Teh horrors!!!
+                return
+    raise NoSuitableProduct(search)
+    
 def tesco_ingredients_details(api, ingredients_list):
     '''Get a list of recipe ingredients details via the Tesco API'''
     results = []
     for ingredient in ingredients_list:
         # Constrain the search to food
         food_search = "%s %s" % (ingredient, "food")
-        details = api.product_search(ingredient)
-        if details['StatusCode'] == 0 and \
-                details['TotalProductCount'] > 0:
-            basic = random.choice(details['Products'])
-            extended = tesco_ingredient_extended_details(api, basic)
-            if extended['StatusCode'] == 0 and \
-                    extended['TotalProductCount'] > 0:
-                results.append(extended['Products'][0])
+        tesco_ingredient_details(api, food_search, results)
     return results
 
 def maybe(fun, probability=0.5, default=None):
@@ -708,7 +738,7 @@ def recipe_details(ingredients_list):
             (price, product_url, detail['Name'])
         calories = tesco_calories(detail)
         if calories:
-            details += ' %s Calories (approx.)' % calories
+            details += ' %.2f Calories (approx.)' % calories
             total_calories += calories
         details += '</p>'
     if details:
@@ -760,8 +790,9 @@ class Recipeer(Prosthetic):
                         "body":details, 
                         "keywords":state["emotion"],
                         })
-                models.increase_todays_quantities(self.token, total_price,
-                                                  total_calories)
+                details = models.MealDetails(cost=total_price,
+                                             calories=total_calories)
+                details.save()
                 result = "posted recipe"
             else:
                 result = "Not posting recipe, asleep"
