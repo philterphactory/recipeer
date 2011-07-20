@@ -743,7 +743,7 @@ def recipe_details(ingredients_list):
             total_calories += calories
         details += '</p>'
     if details:
-        details += "<p>&pound;%s <b>total</b></p>" % total_price
+        details += "<p>&pound;%.2f <b>total</b></p>" % total_price
         if total_calories:
             details += "<p>%s Calories <b>total</b> (approx)</p>" % \
                 total_calories
