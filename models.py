@@ -18,6 +18,6 @@ class MealDetails(models.Model):
     """Keep track of each meal's approximate calories and cost..."""
     weavr_token= models.ForeignKey('webapp.AccessToken',
                                    related_name='day_calories_weavr')
-    when = models.DatetimeField(default=datetime.datetime.now())
+    when = models.DateTimeField(default=datetime.datetime.now())
     calories = models.IntegerField(default=0)
     cost = models.FloatField(default=0.0)

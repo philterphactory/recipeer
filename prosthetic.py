@@ -37,6 +37,10 @@ class NoSuitableProduct(Exception):
     """No suitable food product could be found"""
     pass
 
+class NoIngredientsException(Exception):
+    """No matching ingredients whatsoever could be found"""
+    pass
+
 def tesco_api(): 
     '''Create a Tesco API object using the Datastore Config'''
     config = models.get_config()
@@ -49,58 +53,50 @@ def tesco_purchase(title, details):
     purchase = ",".join(["PURCHASE"] * len(items))
     return "http://www.tesco.com/groceries/recipe/default.aspx?listid=%s&items=%s&qty=%s&purchase=%s" % (title, ",".join(items), qty, purchase)
 
-
 def tesco_is_food(product):
     """Check whether it's cucumber, or cucumber scented product"""
     # This is not reliable. We exclude some food, e.g. Camp Coffee
-    return product["NutrientsCount"] != 0
-
-def choose_product(products):
-    """Choose a food product, or raise an exception"""
-    result = None
-    for product in products:
-        if tesco_is_food(product):
-            result = product
-            break
-    if not result:
-        raise NoSuitableProduct()
-    return result
+    return int(product.get("NutrientsCount", "0")) != 0
 
 def tesco_calories(extended):
-    calories = extended['RDA_Calories_Count']
-    if (calories == '0') and (int(extended["NutrientsCount"]) > 0):
+    calories = int(extended['RDA_Calories_Count'])
+    if (calories == 0) and (int(extended["NutrientsCount"]) > 0):
         for nutrient in extended["Nutrients"]:
             if nutrient["NutrientName"] == "Energy":
                 serving = nutrient["ServingSize"]
                 if serving != '-':
                     try:
-                        calories = re.search(r"\((\d+)kcal\)", serving).group(1)
+                        calories = int(re.search(r"\((\d+)kcal\)",
+                                                 serving).group(1))
                     except Exception, e:
                         logging.info(str(e))
                         # Calorie finding failed, leave calories as zero
                         pass
                 break
-    return int(calories)
+    return calories
 
 def tesco_ingredient_extended_details(api, ingredient):
     '''Get the extended details for a single item'''
     return api.product_search(ingredient['ProductId'], extended=True)
 
-def tesco_ingredient_details(api, search, results):
-    details = api.product_search(ingredient)
-    if details['StatusCode'] == 0 and \
-            details['TotalProductCount'] > 0:
+def tesco_ingredient_details(api, search):
+    details = api.product_search(search)
+    result = None
+    if int(details['StatusCode']) == 0 and \
+            int(details['TotalProductCount']) > 0:
         products = details['Products']
         random.shuffle(products)
         for product in products:
-            extended = tesco_ingredient_extended_details(api, basic)
-            if extended['StatusCode'] == 0 and \
-                    extended['TotalProductCount'] > 0 and \
-                    tesco_is_food(extended):
-                results.append(extended['Products'][0])
-                # Noooo! Multiple exit points from function!!! Teh horrors!!!
-                return
-    raise NoSuitableProduct(search)
+            extended = tesco_ingredient_extended_details(api, product)
+            if int(extended['StatusCode']) == 0 and \
+                    int(extended['TotalProductCount']) > 0:
+                extended_product = extended['Products'][0]
+                if tesco_is_food(extended_product):
+                    result = extended_product
+                    break
+    if not result:
+        raise NoSuitableProduct(search)
+    return result
     
 def tesco_ingredients_details(api, ingredients_list):
     '''Get a list of recipe ingredients details via the Tesco API'''
@@ -108,7 +104,10 @@ def tesco_ingredients_details(api, ingredients_list):
     for ingredient in ingredients_list:
         # Constrain the search to food
         food_search = "%s %s" % (ingredient, "food")
-        tesco_ingredient_details(api, food_search, results)
+        try:
+            results.append(tesco_ingredient_details(api, food_search))
+        except NoSuitableProduct, e:
+            logging.info("Couldn't find suitable product for %s" % ingredient)
     return results
 
 def maybe(fun, probability=0.5, default=None):
@@ -337,7 +336,7 @@ def fruit():
                           "papaya",
                           "peach palm",
                           "peanut",
-                          "pineapple"
+                          "pineapple",
                           "plantain",
                           "pummelo",
                           "pupunha",
@@ -727,6 +726,8 @@ def recipe_details(ingredients_list):
     '''Create a body for the post using details from the Tesco API'''
     api = tesco_api()
     ingredients_details = tesco_ingredients_details(api, ingredients_list)
+    if ingredients_details == []:
+        raise NoIngredientsException()
     details = ""
     total_price = 0.0
     total_calories = 0
@@ -738,7 +739,7 @@ def recipe_details(ingredients_list):
             (price, product_url, detail['Name'])
         calories = tesco_calories(detail)
         if calories:
-            details += ' %.2f Calories (approx.)' % calories
+            details += ' %s Calories (approx.)' % calories
             total_calories += calories
         details += '</p>'
     if details:
@@ -790,12 +791,16 @@ class Recipeer(Prosthetic):
                         "body":details, 
                         "keywords":state["emotion"],
                         })
-                details = models.MealDetails(cost=total_price,
+                details = models.MealDetails(weavr_token=self.token,
+                                             cost=total_price,
                                              calories=total_calories)
                 details.save()
                 result = "posted recipe"
             else:
                 result = "Not posting recipe, asleep"
+        except NoIngredientsException, e:
+            result = "No ingredients could be found matching recipe."
+            logging.error(result)
         except Exception, e:
             logging.error("Exception in recipeer prosthetic:\n%s" % str(e))
         return result
