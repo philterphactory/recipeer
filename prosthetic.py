@@ -735,7 +735,7 @@ def recipe_details(ingredients_list):
         price = round(float(detail['Price']), 2)
         total_price += price
         product_url = tesco_product_url(detail['ProductId'])
-        details += '<p>&pound;%s <a href="%s">%s</a>' % \
+        details += '<p>&pound;%.2f <a href="%s">%s</a>' % \
             (price, product_url, detail['Name'])
         calories = tesco_calories(detail)
         if calories:
