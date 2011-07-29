@@ -801,8 +801,6 @@ class Recipeer(Prosthetic):
         except NoIngredientsException, e:
             result = "No ingredients could be found matching recipe."
             logging.error(result)
-        except Exception, e:
-            logging.error("Exception in recipeer prosthetic:\n%s" % str(e))
         return result
 
 
