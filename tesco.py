@@ -61,9 +61,9 @@ class TescoApi(object):
         if self.session_key:
             query_dict['sessionkey'] = self.session_key
         query = "%s?%s" % (TescoApi.QUERY_ROOT, urllib.urlencode(query_dict))
-        #logging.info(query)
+        logging.info(query)
         response = fetch_url(query)
-        #logging.info(response)
+        logging.info(response)
         return json.loads(response)
     
     def product_search(self, search_for, extended=False):
