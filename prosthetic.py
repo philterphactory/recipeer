@@ -800,7 +800,6 @@ class Recipeer(Prosthetic):
                 result = "Not posting recipe, asleep"
         except NoIngredientsException, e:
             result = "No ingredients could be found matching recipe."
-            logging.error(result)
         return result
 
 
