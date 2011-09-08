@@ -25,8 +25,9 @@
 import logging
 import random
 import re
-import time
 import urllib
+
+from django.utils.html import escape
 
 import tesco
 import models
@@ -43,8 +44,7 @@ class NoIngredientsException(Exception):
 def tesco_api(): 
     '''Create a Tesco API object using the Datastore Config'''
     config = models.get_config()
-    return tesco.TescoApi(config.email, config.password, config.developer_key,
-                         config.application_key)
+    return tesco.TescoApi(config.email, config.password, config.developer_key, config.application_key)
 
 def tesco_purchase(title, details):
     items = [detail["BaseProductId"] for detail in details]
@@ -65,12 +65,9 @@ def tesco_calories(extended):
                 serving = nutrient["ServingSize"]
                 if serving != '-':
                     try:
-                        calories = int(re.search(r"\((\d+)kcal\)",
-                                                 serving).group(1))
+                        calories = int(re.search(r"\((\d+)kcal\)", serving).group(1))
                     except Exception, e:
-                        logging.info(str(e))
-                        # Calorie finding failed, leave calories as zero
-                        pass
+                        logging.info("Calorie finding failed (%s), leaving calories as zero"%str(e))
                 break
     return calories
 
@@ -81,14 +78,12 @@ def tesco_ingredient_extended_details(api, ingredient):
 def tesco_ingredient_details(api, search):
     details = api.product_search(search)
     result = None
-    if int(details['StatusCode']) == 0 and \
-            int(details['TotalProductCount']) > 0:
+    if int(details['StatusCode']) == 0 and int(details['TotalProductCount']) > 0:
         products = details['Products']
         random.shuffle(products)
         for product in products:
             extended = tesco_ingredient_extended_details(api, product)
-            if int(extended['StatusCode']) == 0 and \
-                    int(extended['TotalProductCount']) > 0:
+            if int(extended['StatusCode']) == 0 and int(extended['TotalProductCount']) > 0:
                 extended_product = extended['Products'][0]
                 if tesco_is_food(extended_product):
                     result = extended_product
@@ -129,7 +124,7 @@ def maybe_choose_one_of(choices, probability=0.5):
 
 def singular_for(the_string):
     singular = "a"
-    if the_string and the_string[0] in "aeioUAEIOU":
+    if the_string and the_string[0] in "aeiouAEIOU":
         singular = "an"
     return singular
 
@@ -158,15 +153,12 @@ def amount():
     return choose_one_of(data.amount_options)
 
 def fruit():
-    # http://en.wikipedia.org/wiki/List_of_culinary_fruits
     return choose_one_of(data.fruit_options)
 
 def vegetable():
-    # http://en.wikipedia.org/wiki/List_of_culinary_vegetables
     return choose_one_of(data.vegetable_options)
 
 def meat():
-    # http://en.wikipedia.org/wiki/List_of_meat_animals
     return choose_one_of(data.meat_options)
 
 def dairy():
@@ -185,11 +177,7 @@ def tags():
     return maybe_choose_one_of(data.tag_options)
 
 def ingredients():
-    return random.sample([fruit(),
-                          vegetable(),
-                          meat(),
-                          dairy()],
-                         random.randint(1, 4))
+    return random.sample([fruit(), vegetable(), meat(), dairy()], random.randint(1, 4))
 
 def recipe_description(ingredients_list):
     return " ".join(filter(bool, [meal_moment(),
@@ -212,8 +200,9 @@ def recipe_details(ingredients_list):
     '''Create a body for the post using details from the Tesco API'''
     api = tesco_api()
     ingredients_details = tesco_ingredients_details(api, ingredients_list)
-    if ingredients_details == []:
+    if not ingredients_details:
         raise NoIngredientsException()
+
     details = ""
     total_price = 0.0
     total_calories = 0
@@ -228,18 +217,18 @@ def recipe_details(ingredients_list):
             details += ' %s Calories (approx.)' % calories
             total_calories += calories
         details += '</p>'
+
     if details:
         details += "<p>&pound;%.2f <b>total</b></p>" % total_price
         if total_calories:
             details += "<p>%s Calories <b>total</b> (approx)</p>" % \
                 total_calories
+
     for detail in ingredients_details:
         product_url = tesco_product_url(detail['ProductId'])
         image_url = detail['ImagePath']
-        details += '<a href="%s"><img src="%s"></a>&nbsp;' % (product_url,
-                                                              image_url)
-    details += '<p><a href="%s">Click here</a> to buy these items.</p>' % \
-        tesco_purchase("Weavr Recipe Ingredients", ingredients_details)
+        details += '<a href="%s"><img src="%s"></a>&nbsp;'%(escape(product_url), escape(image_url))
+    details += '<p><a href="%s">Click here</a> to buy these items.</p>'%escape(tesco_purchase("Weavr Recipe Ingredients", ingredients_details))
     return details, total_price, total_calories
 
 def random_recipe():
@@ -253,7 +242,3 @@ def random_recipe():
     recipe = capitalize_start(description)
     details, total_price, total_calories = recipe_details(ingredients_list)
     return recipe, details, total_price, total_calories
-
-if __name__ == '__main__':
-    print repr(random_recipe())
-

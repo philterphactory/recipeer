@@ -22,13 +22,10 @@
 # dealings in this Software without prior written authorization from Philter
 # Phactory Ltd.
 
-from base_prosthetic import Prosthetic
-from django.template.loader import render_to_string
 import logging
-import random
 import re
-import time
-import urllib
+
+from base_prosthetic import Prosthetic
 
 import recipeer
 import models
