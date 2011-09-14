@@ -35,6 +35,7 @@ class Recipeer(Prosthetic):
     '''A prosthetic that publishes innovative recipe ideas.'''
 
     def is_awake(self, state):
+        logging.info("awake state is %r"%state["awake"])
         return state['awake']
 
     def should_post(self, state):
