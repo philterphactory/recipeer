@@ -34,6 +34,10 @@ import models
 class Recipeer(Prosthetic):
     '''A prosthetic that publishes innovative recipe ideas.'''
 
+    @classmethod
+    def time_between_runs(cls):
+        return 3600 * 4
+
     def is_awake(self, state):
         logging.info("awake state is %r"%state["awake"])
         return state['awake']
@@ -45,24 +49,22 @@ class Recipeer(Prosthetic):
         result = "Failed to post recipe."
         try:
             state = self.get("/1/weavr/state/")
-            if self.should_post(state):
-                recipe, details, total_price, total_calories = recipeer.random_recipe()
-                logging.info("posting new recipe: %s" % recipe)
-                logging.info("with details: %s" % details)
-                self.post("/1/weavr/post/", {
-                        "category":"article",
-                        "title":recipe,
-                        "body":details, 
-                        "keywords":state["emotion"],
-                        })
-                details = models.MealDetails(weavr_token=self.token,
-                                             cost=total_price,
-                                             calories=total_calories)
-                details.save()
-                result = "posted recipe"
-            else:
-                result = "Not posting recipe, asleep"
+            if not self.should_post(state):
+                return "Not posting recipe, asleep"
+
+            recipe, details, total_price, total_calories = recipeer.random_recipe()
+            logging.info("posting new recipe: %s" % recipe)
+            logging.info("with details: %s" % details)
+            self.post("/1/weavr/post/", {
+                "category":"article",
+                "title":recipe,
+                "body":details, 
+                "keywords":state["emotion"],
+            })
+            details = models.MealDetails(weavr_token=self.token, cost=total_price, calories=total_calories)
+            details.save()
+            return "posted recipe"
+
         except recipeer.NoIngredientsException, e:
-            result = "No ingredients could be found matching recipe."
-        return result
+            return "No ingredients could be found matching recipe."
 
