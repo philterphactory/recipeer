@@ -38,33 +38,25 @@ class Recipeer(Prosthetic):
     def time_between_runs(cls):
         return 3600 * 4
 
-    def is_awake(self, state):
-        logging.info("awake state is %r"%state["awake"])
-        return state['awake']
-
-    def should_post(self, state):
-        return self.is_awake(state)
-
     def act(self, force=False):
-        result = "Failed to post recipe."
-        try:
-            state = self.get("/1/weavr/state/")
-            if not self.should_post(state):
-                return "Not posting recipe, asleep"
+        state = self.get("/1/weavr/state/")
+        if not state["awake"]:
+            return "Not posting recipe, asleep"
 
+        try:
             recipe, details, total_price, total_calories = recipeer.random_recipe()
-            logging.info("posting new recipe: %s" % recipe)
-            logging.info("with details: %s" % details)
-            self.post("/1/weavr/post/", {
-                "category":"article",
-                "title":recipe,
-                "body":details, 
-                "keywords":state["emotion"],
-            })
             details = models.MealDetails(weavr_token=self.token, cost=total_price, calories=total_calories)
             details.save()
-            return "posted recipe"
-
         except recipeer.NoIngredientsException, e:
             return "No ingredients could be found matching recipe."
 
+        logging.info("posting new recipe: %s" % recipe)
+        logging.info("with details: %r" % details.__dict__)
+
+        self.post("/1/weavr/post/", {
+            "category":"article",
+            "title":recipe,
+            "body":details, 
+            "keywords":state["emotion"],
+        })
+        return unicode(recipe)
