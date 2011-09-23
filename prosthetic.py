@@ -45,18 +45,18 @@ class Recipeer(Prosthetic):
 
         try:
             recipe, details, total_price, total_calories = recipeer.random_recipe()
-            details = models.MealDetails(weavr_token=self.token, cost=total_price, calories=total_calories)
-            details.save()
+            details_model = models.MealDetails(weavr_token=self.token, cost=total_price, calories=total_calories)
+            details_model.save()
         except recipeer.NoIngredientsException, e:
             return "No ingredients could be found matching recipe."
 
         logging.info("posting new recipe: %s" % recipe)
-        logging.info("with details: %r" % details.__dict__)
+        logging.info("with details: %s"%details)
 
         self.post("/1/weavr/post/", {
             "category":"article",
             "title":recipe,
-            "body":details, 
+            "body":unicode(details), 
             "keywords":state["emotion"],
         })
         return unicode(recipe)
