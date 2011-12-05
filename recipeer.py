@@ -25,13 +25,11 @@
 import logging
 import random
 import re
-import urllib
 
 from django.utils.html import escape
 
 import tesco
 import models
-import data
 
 class NoSuitableProduct(Exception):
     """No suitable food product could be found"""
@@ -144,37 +142,37 @@ def nice_list(items):
     return result
 
 def meal_moment():
-    return maybe_choose_one_of(data.meal_options)
+    return maybe_choose_one_of(models.RecipeOptions.get_option('meal'))
 
 def desire():
-    return choose_one_of(data.desire_options)
+    return choose_one_of(models.RecipeOptions.get_option('desire'))
 
 def amount():
-    return choose_one_of(data.amount_options)
+    return choose_one_of(models.RecipeOptions.get_option('amount'))
 
 def fruit():
-    return choose_one_of(data.fruit_options)
+    return choose_one_of(models.RecipeOptions.get_option('fruit'))
 
 def vegetable():
-    return choose_one_of(data.vegetable_options)
+    return choose_one_of(models.RecipeOptions.get_option('vegetable'))
 
 def meat():
-    return choose_one_of(data.meat_options)
+    return choose_one_of(models.RecipeOptions.get_option('meat'))
 
 def dairy():
-  return choose_one_of(data.dairy_options)
+  return choose_one_of(models.RecipeOptions.get_option('dairy'))
 
 def meal_format():
-  return choose_one_of(data.format_options)
+  return choose_one_of(models.RecipeOptions.get_option('meal'))
 
 def side_dish():
-    return "with %s" % choose_one_of(data.side_options)
+    return "with %s" % choose_one_of(models.RecipeOptions.get_option('side'))
 
 def drink():
-    maybe(lambda : "With %s." % choose_one_of(data.drink_options))
+    maybe(lambda : "With %s." % choose_one_of(models.RecipeOptions.get_option('drink')))
 
 def tags():
-    return maybe_choose_one_of(data.tag_options)
+    return maybe_choose_one_of(models.RecipeOptions.get_option('tag'))
 
 def ingredients():
     return random.sample([fruit(), vegetable(), meat(), dairy()], random.randint(1, 4))

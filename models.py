@@ -53,7 +53,7 @@ class RecipeOptions(models.Model):
         memcache.delete(self.cache_key)
 
     @classmethod
-    def get_option(cls, name='meal'):
+    def get_option(cls, name):
         if not name in cls.VALID_OPTION_NAMES:
             raise ValueError(u"%s is not a valid option" % name)
         cache_key = cls.cache_key % name
