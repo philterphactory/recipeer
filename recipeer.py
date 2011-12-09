@@ -163,7 +163,7 @@ def dairy():
   return choose_one_of(models.RecipeOptions.get_option('dairy'))
 
 def meal_format():
-  return choose_one_of(models.RecipeOptions.get_option('meal'))
+  return choose_one_of(models.RecipeOptions.get_option('format'))
 
 def side_dish():
     return "with %s" % choose_one_of(models.RecipeOptions.get_option('side'))

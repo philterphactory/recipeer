@@ -44,7 +44,7 @@ except:
 
 
 class TescoApi(object):
-    QUERY_ROOT = "https://www.techfortesco.com/groceryapi_b1/restservice.aspx"
+    QUERY_ROOT = "https://secure.techfortesco.com/groceryapi_b1/restservice.aspx"
     
     def __init__(self, email, password, dev_key, app_key):
         '''Tesco Direct email and password, Tesco API dev and app keys'''
@@ -53,7 +53,8 @@ class TescoApi(object):
                                                  'password':password,
                                                  'developerkey':dev_key,
                                                  'applicationkey':app_key})
-        self.session_key = login_response['SessionKey']
+        if login_response:
+            self.session_key = login_response.get('SessionKey')
     
     def get_json(self, command, query_dict):
         '''Get the parsed json response from the server'''
