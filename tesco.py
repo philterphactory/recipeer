@@ -27,7 +27,7 @@ import urllib
 
 # python 2.6
 try:
-    import simplejson as json
+    from django.utils import simplejson as json
 except ImportError:
     import json
 
